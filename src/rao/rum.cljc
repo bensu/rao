@@ -36,14 +36,21 @@
                      (add-watch local :rao/local (fn [_ _ old-value new-value]
                                                    (when-not (= old-value new-value)
                                                      (rum/request-render react-component)))))
-                  (let [parent-d! (:rao/d! (first (:rum/args rum-state)))]
+                  (let [args (first (:rum/args rum-state))
+                        rao-id (:rao/id args)
+                        parent-d! (:rao/d! args)]
                     (assoc rum-state
                            :rao/state @local
-                           :rao/d! (fn d! [action data]
-                                     (let [state' (swap! local step [action data])]
-                                       (when effect!
-                                         (effect! state' [action data {:rao/d! d!}]))
-                                       (when parent-d!
-                                         (parent-d! action data {:rao/d! parent-d!})))))))
+                           :rao/d! (fn d!
+                                     ([[action data metadata]]
+                                      (d! action data metadata))
+                                     ([action data]
+                                      (d! action data {}))
+                                     ([action data metadata]
+                                      (let [state' (swap! local step [action data metadata])]
+                                        (when effect!
+                                          (effect! state' [action data {:rao/d! d!}]))
+                                        (when parent-d!
+                                          (parent-d! [action data {:rao/d! parent-d! :rao/id rao-id}]))))))))
     :before-render (fn [{:keys [rao/local] :as rum-state}]
                      (assoc rum-state :rao/state @local))}))
